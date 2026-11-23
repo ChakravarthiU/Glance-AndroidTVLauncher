@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-feature android:name="android.software.leanback" android:required="false" />
+
+    <!-- The phone upload page for wallpapers (Requirements.md 5.1), served on the home network only while
+         Settings › Wallpapers is open; also the weather. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Weather (Requirements.md 5.8): the VPN check before IP location, and the TV's own location service where it
+         has one. Location is asked for only from Settings › Time, date & weather. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- The Network button's Wi-Fi name (Requirements.md 5.9): Android gives it only to apps allowed to use location
+         (fine location from Android 10). Asked for from Settings › System, or granted with adb (README). -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-feature android:name="android.hardware.location" android:required="false" />
+    <uses-feature android:name="android.hardware.location.network" android:required="false" />
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+
+    <!-- Continue watching (Requirements.md 5.7): reads every app's Play Next items (Watch Next). Asked for the first
+         time Home shows, then from Settings › Continue watching, or granted with
+         adb shell pm grant com.chakriau.tvhome.v2 android.permission.READ_TV_LISTINGS -->
+    <uses-permission android:name="android.permission.READ_TV_LISTINGS" />
+
+    <!-- Android 11+ package visibility: the apps Home lists, and the App info page (hold OK). -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+        <intent>
+            <action android:name="android.settings.APPLICATION_DETAILS_SETTINGS" />
+            <data android:scheme="package" />
+        </intent>
+        <!-- The TV's settings pages (Settings and Network buttons, Settings › System). -->
+        <intent>
+            <action android:name="android.settings.SETTINGS" />
+        </intent>
+        <intent>
+            <action android:name="android.settings.WIFI_SETTINGS" />
+        </intent>
+        <intent>
+            <action android:name="android.settings.WIRELESS_SETTINGS" />
+        </intent>
+        <intent>
+            <action android:name="android.settings.HOME_SETTINGS" />
+        </intent>
+        <!-- The TV app that switches to an input (Inputs button). -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:mimeType="vnd.android.cursor.item/channel" />
+        </intent>
+        <intent>
+            <action android:name="android.media.tv.TvInputService" />
+        </intent>
+        <!-- Continue watching: the TV provider that holds Watch Next. -->
+        <provider android:authorities="android.media.tv" />
+    </queries>
+
+    <application
+        android:name=".TvHomeApp"
+        android:allowBackup="false"
+        android:banner="@drawable/banner"
+        android:hardwareAccelerated="true"
+        android:icon="@drawable/icon"
+        android:label="@string/app_name"
+        android:theme="@style/Home">
+
+        <!-- Home. Also listed as a TV app, so it can be opened from V1 or the stock launcher before it is made
+             the Home app (Scripts/Install-Package.ps1 -SetHome). -->
+        <activity
+            android:name=".MainActivity"
+            android:clearTaskOnLaunch="true"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout|uiMode"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:screenOrientation="landscape"
+            android:stateNotNeeded="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- The launcher's own Settings (build order step 4). Opened from Home, or over ADB
+             (Scripts/Install-Package.ps1 -OpenSettings), so it can always be reached even if Home's button can't. -->
+        <activity
+            android:name=".settings.SettingsActivity"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout|uiMode"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:screenOrientation="landscape" />
+
+        <!-- Home exactly as it looks, opened over Settings to see a test from the phone page (sky, banner, lights)
+             where it really goes (Requirements.md 5.14). Not a Home app: it closes as soon as it is hidden. -->
+        <activity
+            android:name=".HomePreviewActivity"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout|uiMode"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:screenOrientation="landscape" />
+    </application>
+</manifest>

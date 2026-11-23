@@ -1,0 +1,65 @@
+plugins {
+    id 'com.android.application'
+}
+
+// Release signing comes only from the environment: the GitHub Actions workflow decodes the keystore from GitHub
+// Secrets (set up once with Scripts/Setup-Signing.ps1). Without it, assembleRelease makes an unsigned APK; never the debug
+// key, which differs on every CI runner and would stop updates installing.
+def keystoreFile = System.getenv('V2_KEYSTORE_FILE')
+
+android {
+    namespace 'com.chakriau.tvhome.v2'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.chakriau.tvhome.v2'
+        minSdk 26
+        targetSdk 34
+        // Each CI run is a higher versionCode, so adb install -r always takes it as an update.
+        versionCode((System.getenv('GITHUB_RUN_NUMBER') ?: '1') as int)
+        versionName '2.0.0'
+    }
+
+    signingConfigs {
+        release {
+            if (keystoreFile) {
+                storeFile file(keystoreFile)
+                storePassword System.getenv('V2_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('V2_KEY_ALIAS')
+                keyPassword System.getenv('V2_KEY_PASSWORD')
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            // R8: smaller APK and faster start on a slow TV CPU. Lottie ships its own keep rules.
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig keystoreFile ? signingConfigs.release : null
+        }
+    }
+
+    packagingOptions {
+        resources {
+            // Kotlin metadata pulled in by AndroidX; this app is plain Java and never reads it.
+            excludes += ['kotlin/**', 'META-INF/*.version', 'META-INF/*.kotlin_module', 'DebugProbesKt.bin']
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    // Banners (Requirements 6.4). 6.5.2: newest Lottie built against compileSdk 34.
+    implementation 'com.airbnb.android:lottie:6.5.2'
+    // Home's app grid and rows (same version as V1).
+    implementation 'androidx.recyclerview:recyclerview:1.3.2'
+    // The QR code for the phone upload page (Requirements 5.1). Core only: plain Java, no Android views.
+    implementation 'com.google.zxing:core:3.5.3'
+    testImplementation 'junit:junit:4.13.2'
+}

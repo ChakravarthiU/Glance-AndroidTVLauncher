@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- What a Continue watching card shows (View.setTag(key, value)). -->
+    <item name="tag_card" type="id" />
+    <!-- A Settings control's "show the current value again" action (Ui.refreshAll). -->
+    <item name="tag_update" type="id" />
+</resources>

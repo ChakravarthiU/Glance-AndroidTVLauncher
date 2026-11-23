@@ -1,0 +1,91 @@
+<!doctype html><html><head><meta charset="utf-8">
+<style>html,body{margin:0;background:transparent;width:1200px;height:340px;overflow:hidden}</style></head><body>
+<!-- Still art for the Simple, Birthday and Christmas banners (open with ?design=simple|birthday|christmas), in the
+     1200x340 banner template. Text, sparkles, balloons, confetti, snow and twinkling lights are NOT here: they are
+     animated vector layers / replaceable text added by make_banner.py. Keep the text safe zone (x 300..900,
+     y 110..240) plain. -->
+<svg id="s" width="1200" height="340" viewBox="0 0 1200 340"><defs id="defs"></defs><g id="g"></g></svg>
+<script>
+const ns = 'http://www.w3.org/2000/svg';
+const design = new URLSearchParams(location.search).get('design') || 'simple';
+function el(p, t, a) { const e = document.createElementNS(ns, t); for (const k in a) e.setAttribute(k, a[k]); p.appendChild(e); return e; }
+const defs = document.getElementById('defs'), g = document.getElementById('g');
+function linear(id, stops, vertical = true) {
+  const lg = el(defs, 'linearGradient', vertical ? { id, x1: 0, y1: 0, x2: 0, y2: 1 } : { id, x1: 0, y1: 0, x2: 1, y2: 0 });
+  stops.forEach(([o, c]) => el(lg, 'stop', { offset: o, 'stop-color': c }));
+}
+const D = {
+  simple:    { cloth: [['0', '#3730a3'], ['.55', '#312e81'], ['1', '#1e1b4b']], trim: ['#b7791f', '#ffe08a'], tassel: '#ffd166', dots: 'rgba(255,224,138,.16)' },
+  birthday:  { cloth: [['0', '#a21caf'], ['.55', '#86198f'], ['1', '#581c87']], trim: ['#f9a8d4', '#fff1f8'], tassel: '#fbcfe8', dots: 'rgba(255,255,255,.14)' },
+  christmas: { cloth: [['0', '#166534'], ['.55', '#14532d'], ['1', '#052e16']], trim: ['#b91c1c', '#fca5a5'], tassel: '#fbbf24', dots: 'rgba(255,255,255,.10)' },
+}[design];
+linear('cloth', D.cloth);
+linear('trim', [['0', D.trim[0]], ['.5', D.trim[1]], ['1', D.trim[0]]], false);
+const pat = el(defs, 'pattern', { id: 'dots', width: 60, height: 60, patternUnits: 'userSpaceOnUse' });
+el(pat, 'circle', { cx: 30, cy: 30, r: 3, fill: D.dots });
+el(pat, 'circle', { cx: 0, cy: 0, r: 2, fill: D.dots });
+
+// The hanging cloth: same shape as the Diwali banner (x 190..1010, scalloped hem, tassels).
+const x0 = 190, x1 = 1010, y0 = 70, y1 = 256, n = 14, w = (x1 - x0) / n;
+el(g, 'path', { d: 'M200 20 L240 70 M1000 20 L960 70', stroke: '#e8c27a', 'stroke-width': 2.5 });
+let d = `M${x0} ${y0} L${x1} ${y0} L${x1} ${y1}`;
+for (let i = n; i > 0; i--) { const a = x0 + i * w, b = a - w; d += ` Q${(a + b) / 2} ${y1 + 26} ${b} ${y1}`; }
+d += ' Z';
+el(g, 'path', { d, fill: 'url(#cloth)' });
+el(g, 'path', { d, fill: 'url(#dots)' });
+el(g, 'path', { d, fill: 'none', stroke: 'url(#trim)', 'stroke-width': 5 });
+el(g, 'rect', { x: 206, y: 110, width: 788, height: 128, rx: 10, fill: 'none', stroke: design === 'christmas' ? 'rgba(251,191,36,.5)' : 'rgba(255,255,255,.35)', 'stroke-width': 2, 'stroke-dasharray': '2 8', 'stroke-linecap': 'round' });
+for (let i = 0; i < n; i++) {
+  const cx = x0 + (i + .5) * w, cy = y1 + 13;
+  el(g, 'line', { x1: cx, y1: cy, x2: cx, y2: cy + 16, stroke: '#e8c27a', 'stroke-width': 2 });
+  el(g, 'path', { d: `M${cx - 7} ${cy + 30} Q${cx} ${cy + 10} ${cx + 7} ${cy + 30} Z`, fill: D.tassel });
+  el(g, 'circle', { cx, cy: cy + 31, r: 3, fill: D.tassel });
+}
+
+if (design === 'simple') {
+  // A gold rope with beads along the top edge.
+  el(g, 'path', { d: 'M176 70 Q600 92 1024 70', stroke: '#e8b65a', 'stroke-width': 6, fill: 'none', 'stroke-linecap': 'round' });
+  for (let i = 0; i <= 20; i++) {
+    const t = i / 20, x = (1 - t) * (1 - t) * 176 + 2 * (1 - t) * t * 600 + t * t * 1024, y = (1 - t) * (1 - t) * 70 + 2 * (1 - t) * t * 92 + t * t * 70;
+    el(g, 'circle', { cx: x, cy: y, r: i % 2 ? 5 : 8, fill: i % 2 ? '#fde68a' : '#f59e0b' });
+  }
+}
+
+if (design === 'birthday') {
+  // Bunting: a cord with pennants along the top of the cloth.
+  const cols = ['#f472b6', '#facc15', '#38bdf8', '#4ade80', '#fb923c', '#a78bfa'];
+  el(g, 'path', { d: 'M180 68 Q600 96 1020 68', stroke: '#fff1f8', 'stroke-width': 3, fill: 'none' });
+  const m = 16;
+  for (let i = 0; i < m; i++) {
+    const t0 = (i + .1) / m, t1 = (i + .9) / m, tm = (i + .5) / m;
+    const P = t => [(1 - t) * (1 - t) * 180 + 2 * (1 - t) * t * 600 + t * t * 1020, (1 - t) * (1 - t) * 68 + 2 * (1 - t) * t * 96 + t * t * 68];
+    const [ax, ay] = P(t0), [bx, by] = P(t1), [mx, my] = P(tm);
+    el(g, 'path', { d: `M${ax} ${ay} L${bx} ${by} L${mx} ${my + 34} Z`, fill: cols[i % cols.length] });
+  }
+}
+
+if (design === 'christmas') {
+  // A pine garland along the top, with baubles and small gold stars.
+  const P = t => [(1 - t) * (1 - t) * 170 + 2 * (1 - t) * t * 600 + t * t * 1030, (1 - t) * (1 - t) * 66 + 2 * (1 - t) * t * 98 + t * t * 66];
+  for (let i = 0; i <= 120; i++) {
+    const [x, y] = P(i / 120);
+    for (let k = 0; k < 6; k++) {
+      const a = (k / 6) * Math.PI * 2 + i, len = 12 + (k % 3) * 4;
+      el(g, 'line', { x1: x, y1: y, x2: x + Math.cos(a) * len, y2: y + Math.sin(a) * len * .8, stroke: k % 2 ? '#15803d' : '#166534', 'stroke-width': 3, 'stroke-linecap': 'round' });
+    }
+  }
+  const bcol = ['#dc2626', '#fbbf24', '#dc2626', '#e5e7eb'];
+  for (let i = 1; i < 12; i++) {
+    const [x, y] = P(i / 12);
+    el(g, 'line', { x1: x, y1: y, x2: x, y2: y + 12, stroke: '#fbbf24', 'stroke-width': 1.5 });
+    el(g, 'circle', { cx: x, cy: y + 22, r: 10, fill: bcol[i % bcol.length] });
+    el(g, 'circle', { cx: x - 3, cy: y + 18, r: 3, fill: 'rgba(255,255,255,.6)' });
+  }
+  // Holly at both ends.
+  for (const [hx, hy, s] of [[178, 66, 1], [1022, 66, -1]]) {
+    el(g, 'path', { d: `M${hx} ${hy} q${18 * s} -26 ${44 * s} -8 q${-10 * s} 4 ${-6 * s} 14 q${-18 * s} -8 ${-38 * s} -6 z`, fill: '#15803d' });
+    el(g, 'path', { d: `M${hx} ${hy} q${20 * s} 22 ${46 * s} 10 q${-8 * s} -6 ${-4 * s} -16 q${-20 * s} 10 ${-42 * s} 6 z`, fill: '#166534' });
+    for (const [dx, dy] of [[0, 0], [8, -6], [8, 6]]) el(g, 'circle', { cx: hx + dx * s, cy: hy + dy, r: 6, fill: '#dc2626' });
+  }
+}
+</script></body></html>

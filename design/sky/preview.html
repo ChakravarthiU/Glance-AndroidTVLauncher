@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sky preview</title>
+<style>
+  body { margin: 0; background: #111; color: #ddd; font: 14px system-ui, sans-serif; }
+  #bar { padding: 8px 12px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  canvas { display: block; width: 100%; max-width: 1920px; }
+</style>
+</head>
+<body>
+<!-- A browser copy of app/.../sky/SkyView.java (same geometry, sizes and counts, Requirements.md 5.10) over the
+     Theme 1 mockup, to judge the look before building. ?kind=RAIN&p=0.3&body=SUN&phase=0.3&t=2000 freezes a frame
+     (used for screenshots); with no t it animates; &bg=image puts it over another wallpaper (a white one shows the
+     moon's night patch). Kinds: CLEAR PARTLY_CLOUDY CLOUDY FOG DRIZZLE RAIN SNOW STORM. -->
+<div id="bar">
+  <select id="kind"></select>
+  <label>Body <select id="body"><option>SUN</option><option>MOON</option></select></label>
+  <label>Across <input type="range" id="p" min="0" max="1" step="0.01" value="0.3"></label>
+  <label>Moon phase <input type="range" id="phase" min="0" max="1" step="0.01" value="0.3"></label>
+</div>
+<canvas id="c" width="1920" height="1080"></canvas>
+<script>
+const Q = new URLSearchParams(location.search);
+const KINDS = ['CLEAR', 'PARTLY_CLOUDY', 'CLOUDY', 'FOG', 'DRIZZLE', 'RAIN', 'SNOW', 'STORM'];
+// SkyMath.effects: clouds, grey, rain, drizzle, snow, lightning, haze, bodyAlpha, stars
+const FX = {
+  CLEAR: [0, false, 0, false, 0, false, false, 1, true],
+  PARTLY_CLOUDY: [3, false, 0, false, 0, false, false, 1, true],
+  CLOUDY: [6, false, 0, false, 0, false, false, 0.62, false],
+  FOG: [2, false, 0, false, 0, false, true, 0.3, false],
+  DRIZZLE: [5, true, 45, true, 0, false, false, 0.3, false],
+  RAIN: [6, true, 110, false, 0, false, false, 0.2, false],
+  SNOW: [4, true, 0, false, 70, false, false, 0.3, false],
+  STORM: [7, true, 140, false, 0, true, false, 0, false],
+};
+const $ = id => document.getElementById(id);
+for (const k of KINDS) $('kind').add(new Option(k, k));
+$('kind').value = Q.get('kind') || 'PARTLY_CLOUDY';
+$('body').value = Q.get('body') || 'SUN';
+$('p').value = Q.get('p') || 0.3;
+$('phase').value = Q.get('phase') || 0.3;
+
+const c = $('c'), g = c.getContext('2d');
+const bg = new Image(); bg.src = Q.get('bg') || '../theme1-home.png';
+// Theme 1's sky box (Theme1Home DECOR): 0..1920 x 180..612
+const L = 0, T = 180, R = 1920, B = 612;
+let rnd = mulberry(7);
+function mulberry(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+let S = null;
+function build() {
+  rnd = mulberry(7);
+  const [clouds, grey, rain, drizzle, snow, lightning, haze, bodyAlpha, stars] = FX[$('kind').value];
+  const w = R - L, h = B - T, body = $('body').value;
+  const art = [cloud(300, 110, grey), cloud(220, 84, grey), cloud(380, 130, grey)];
+  S = { grey, drizzle, lightning, haze, bodyAlpha, art, body, clouds: [], drops: [], flakes: [], stars: [] };
+  for (let i = 0; i < clouds; i++) S.clouds.push({ shape: i % 3, x: L - 200 + (w + 200) * (i + rnd() * 0.6) / clouds, y: T + 40 + rnd() * h * (haze ? 0.45 : 0.36), v: 7 + Math.floor(rnd() * 11) });
+  for (let i = 0; i < rain; i++) S.drops.push({ x: L + rnd() * (w + 120), y: T + rnd() * h, v: drizzle ? 380 + rnd() * 160 : 820 + rnd() * 360 });
+  for (let i = 0; i < snow; i++) S.flakes.push({ x: L + rnd() * w, y: T + rnd() * h, v: 45 + rnd() * 70, r: 2.2 + rnd() * 3, ph: rnd() * 6.28 });
+  if (stars && body === 'MOON') for (let i = 0; i < 28; i++) S.stars.push({ x: L + rnd() * w, y: T + rnd() * h * 0.7, ph: rnd() });
+}
+function cloud(w, h, grey) {
+  const o = document.createElement('canvas'); o.width = w; o.height = h;
+  const x = o.getContext('2d'); x.fillStyle = grey ? 'rgb(150,158,172)' : '#fff'; x.filter = `blur(${h * 0.08}px)`;
+  x.beginPath(); x.roundRect(w * 0.1, h * 0.48, w * 0.8, h * 0.3, h * 0.15); x.fill();
+  for (const [cx, cy, r] of [[0.3, 0.5, 0.26], [0.5, 0.38, 0.32], [0.7, 0.5, 0.24]]) { x.beginPath(); x.arc(w * cx, h * cy, h * r, 0, 7); x.fill(); }
+  return o;
+}
+const arc = (p, l, r, hz, pk) => [l + p * (r - l), hz - Math.sin(Math.PI * p) * (hz - pk)];
+const fade = p => Math.max(0, Math.min(1, Math.min(p, 1 - p) / 0.04));
+
+let last = performance.now(), nextFlash = 3000, flashUntil = 0;
+function frame(now, dt) {
+  g.clearRect(0, 0, 1920, 1080);
+  if (bg.complete && bg.naturalWidth) g.drawImage(bg, 0, 0, 1920, 1080);
+  else { g.fillStyle = '#26406e'; g.fillRect(0, 0, 1920, 1080); }
+  for (const s of S.stars) { const a = 0.35 + 0.65 * Math.abs(Math.sin(Math.PI * ((now / 2600 + s.ph) % 1))); g.fillStyle = `rgba(255,255,255,${0.78 * a})`; g.beginPath(); g.arc(s.x, s.y, 1.8, 0, 7); g.fill(); }
+  // Sun or moon (SkyArt): cached art, the sun's rays turning slowly
+  const p = Number($('p').value), [x, y] = arc(p, L + 60, R - 60, B - 24, T + 70);
+  const alpha = fade(p) * S.bodyAlpha;
+  if (alpha > 0.01) {
+    if (S.body === 'SUN') drawSun(x, y, p, alpha, now);
+    else drawMoon(x, y, Number($('phase').value), alpha);
+  }
+  const veil = S.clouds.length > 0 && S.bodyAlpha > 0 && S.bodyAlpha < 1 && alpha > 0.01;
+  if (S.haze) { const gr = g.createLinearGradient(0, T + (B - T) * 0.35, 0, B); gr.addColorStop(0, 'rgba(220,226,235,0)'); gr.addColorStop(1, 'rgba(220,226,235,0.43)'); g.fillStyle = gr; g.fillRect(L, T + (B - T) * 0.35, R - L, (B - T) * 0.65); }
+  const flash = now < flashUntil;
+  // SkyMath.veilAt: one cloud stays partly in front of a dimmed sun or moon, swaying gently
+  if (veil) {
+    const r = S.body === 'SUN' ? SUN_R * (1 + 0.25 * warmthOf(p)) : MOON_R, b = S.art[0];
+    const sway = Math.sin(2 * Math.PI * (now % 40000) / 40000) * 0.35 * r;
+    g.globalAlpha = (flash ? 1 : S.grey ? 225 / 255 : 205 / 255) * fade(p);
+    g.drawImage(b, x + 0.6 * r + sway - b.width / 2, y - 0.25 * r - 0.06 * b.height);
+  }
+  g.globalAlpha = flash ? 1 : S.grey ? 225 / 255 : 205 / 255;
+  for (const k of S.clouds) { const b = S.art[k.shape]; k.x += k.v * dt; if (k.x > R) k.x = L - b.width; g.drawImage(b, k.x, k.y); }
+  g.globalAlpha = 1;
+  const len = S.drizzle ? 14 : 26, sl = 0.18, ff = B - (B - T) * 0.2;
+  g.save(); g.beginPath(); g.rect(L, T, R - L, B - T); g.clip();
+  g.lineWidth = S.drizzle ? 1.6 : 2.2; g.lineCap = 'round';
+  for (const d of S.drops) {
+    d.y += d.v * dt; d.x -= d.v * dt * sl;
+    if (d.y > B || d.x < L - 40) { d.y = T - rnd() * 60; d.x = L + rnd() * (R - L + 120); }
+    const a = d.y > ff ? 1 - (d.y - ff) / (B - ff) : 1;
+    g.strokeStyle = `rgba(200,215,240,${(S.drizzle ? 120 : 170) / 255 * a})`;
+    g.beginPath(); g.moveTo(d.x, d.y); g.lineTo(d.x + len * sl, d.y - len); g.stroke();
+  }
+  for (const f of S.flakes) {
+    f.y += f.v * dt; if (f.y > B) { f.y = T - f.r; f.x = L + rnd() * (R - L); }
+    const a = f.y > ff ? 1 - (f.y - ff) / (B - ff) : 1;
+    g.fillStyle = `rgba(255,255,255,${0.9 * a})`; g.beginPath(); g.arc(f.x + Math.sin(now / 900 + f.ph) * 14, f.y, f.r, 0, 7); g.fill();
+  }
+  g.restore();
+  if (S.lightning) {
+    if (now >= nextFlash) { flashUntil = now + 90; nextFlash = now + (rnd() < 0.5 ? 160 : 4000 + rnd() * 8000); }
+    if (now < flashUntil || Q.get('flash')) { const lg = g.createLinearGradient(0, T, 0, B); lg.addColorStop(0, 'rgba(235,240,255,0)'); lg.addColorStop(0.3, 'rgba(235,240,255,0.27)'); lg.addColorStop(0.7, 'rgba(235,240,255,0.27)'); lg.addColorStop(1, 'rgba(235,240,255,0)'); g.fillStyle = lg; g.fillRect(L, T, R - L, B - T); }
+  }
+  // The sky box, for reference
+  if (Q.get('box')) { g.strokeStyle = 'rgba(255,80,80,.8)'; g.strokeRect(L, T, R - L, B - T); }
+}
+// ---- SkyArt: the same recipes as app/.../sky/SkyArt.java ----
+const SUN_R = 46, MOON_R = 40;
+const moonTex = new Image(); moonTex.src = '../../app/src/main/assets/sky/moon.webp';
+const cache = {};
+function canvasOf(w, h) { const c = document.createElement('canvas'); c.width = Math.ceil(w); c.height = Math.ceil(h); return c; }
+const lerp = (a, b, t) => a + (b - a) * t;
+const mix = (c1, c2, t) => c1.map((v, i) => Math.round(lerp(v, c2[i], t)));
+// warmth 0 (high in the sky) .. 1 (on the horizon), in 8 steps
+function warmthOf(p) { return Math.round((1 - Math.min(1, Math.min(p, 1 - p) / 0.18)) * 8) / 8; }
+function sunArt(w) {
+  const key = 'sun' + w; if (cache[key]) return cache[key];
+  const r = SUN_R * (1 + 0.25 * w), size = r * 9, c = canvasOf(size, size), g = c.getContext('2d'), m = size / 2;
+  const core = mix([255, 252, 240], [255, 196, 140], w), edge = mix([255, 214, 120], [255, 120, 60], w);
+  const halo = mix([255, 214, 140], [255, 110, 60], w);
+  // wide halo
+  let gr = g.createRadialGradient(m, m, r * 0.8, m, m, r * 4.4);
+  gr.addColorStop(0, `rgba(${halo},${lerp(0.30, 0.42, w)})`); gr.addColorStop(0.35, `rgba(${halo},${lerp(0.10, 0.18, w)})`);
+  gr.addColorStop(1, `rgba(${halo},0)`); g.fillStyle = gr; g.fillRect(0, 0, size, size);
+  // inner bloom
+  gr = g.createRadialGradient(m, m, r * 0.9, m, m, r * 1.9);
+  gr.addColorStop(0, `rgba(${core},${lerp(0.75, 0.55, w)})`); gr.addColorStop(1, `rgba(${core},0)`);
+  g.fillStyle = gr; g.beginPath(); g.arc(m, m, r * 1.9, 0, 7); g.fill();
+  // disc: white-hot centre to a warmer edge (limb darkening)
+  gr = g.createRadialGradient(m - r * 0.15, m - r * 0.15, 0, m, m, r);
+  gr.addColorStop(0, `rgb(${core})`); gr.addColorStop(0.7, `rgb(${mix(core, edge, 0.35)})`); gr.addColorStop(1, `rgb(${edge})`);
+  g.fillStyle = gr; g.beginPath(); g.arc(m, m, r, 0, 7); g.fill();
+  return cache[key] = { c, r };
+}
+function raysArt(w) {
+  const key = 'rays' + w; if (cache[key]) return cache[key];
+  const r = SUN_R * (1 + 0.25 * w), len = r * lerp(3.6, 2.4, w), size = len * 2 + 4, c = canvasOf(size, size), g = c.getContext('2d'), m = size / 2;
+  const col = mix([255, 236, 190], [255, 160, 100], w);
+  g.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 12; i++) {
+    const a = i * Math.PI / 6, l = len * (i % 2 ? 0.7 : 1), wd = r * (i % 2 ? 0.16 : 0.22);
+    g.save(); g.translate(m, m); g.rotate(a);
+    const gr = g.createLinearGradient(r * 0.9, 0, l, 0);
+    gr.addColorStop(0, `rgba(${col},${lerp(0.22, 0.14, w)})`); gr.addColorStop(1, `rgba(${col},0)`);
+    g.fillStyle = gr; g.beginPath(); g.moveTo(r * 0.9, -wd); g.lineTo(l, 0); g.lineTo(r * 0.9, wd); g.closePath(); g.fill();
+    g.restore();
+  }
+  return cache[key] = { c };
+}
+function drawSun(x, y, p, alpha, now) {
+  const w = warmthOf(p), art = sunArt(w), rays = raysArt(w);
+  g.save(); g.globalAlpha = alpha;
+  g.drawImage(art.c, x - art.c.width / 2, y - art.c.height / 2);
+  const breathe = 0.85 + 0.15 * Math.sin(now / 1900);
+  g.globalAlpha = alpha * breathe; g.translate(x, y); g.rotate(now / 240000 * 2 * Math.PI);
+  g.drawImage(rays.c, -rays.c.width / 2, -rays.c.height / 2);
+  g.restore();
+}
+function moonArt(phase) {
+  const q = Math.round(phase * 100) / 100, key = 'moon' + q; if (cache[key]) return cache[key];
+  const r = MOON_R, d = r * 2, pad = r * 0.2, size = d + pad * 2, c = canvasOf(size, size), g2 = c.getContext('2d'), m = size / 2;
+  g2.imageSmoothingQuality = 'high';
+  g2.drawImage(moonTex, m - r, m - r, d, d);
+  // the unlit part fades to almost clear (the sky shows through), with a soft terminator; a faint earthshine stays
+  const sh = canvasOf(size, size), s2 = sh.getContext('2d');
+  s2.fillStyle = 'rgba(0,0,0,0.84)'; s2.fillRect(0, 0, size, size);   // the dark side keeps 16%: earthshine
+  const waxing = q <= 0.5, f = waxing ? q : 1 - q;
+  if (f >= 0.02) {
+    const rx = r * Math.abs(Math.cos(2 * Math.PI * f));
+    s2.save(); if (!waxing) { s2.translate(2 * m, 0); s2.scale(-1, 1); }
+    s2.globalCompositeOperation = 'destination-out'; s2.filter = `blur(${r * 0.07}px)`; s2.fillStyle = '#000';
+    s2.beginPath(); s2.arc(m, m, r, -Math.PI / 2, Math.PI / 2, false);
+    s2.ellipse(m, m, rx, r, 0, Math.PI / 2, -Math.PI / 2, f < 0.25); s2.closePath(); s2.fill(); s2.restore();
+  }
+  g2.globalCompositeOperation = 'destination-out'; g2.drawImage(sh, 0, 0);   // see-through where unlit
+  return cache[key] = { c, lit: Math.sin(Math.PI * q) };   // 0 new .. 1 full
+}
+// SkyMath.skyLight: the wallpaper's brightness in 16 columns across the sky box (WallpaperView works it out once per
+// photo), and SkyMath.moonBackdrop: how strongly a patch of night is drawn behind the moon over a bright photo.
+let LIGHT = null;
+function skyLight() {
+  const cols = 16, rows = 8, o = canvasOf(cols * 4, rows * 4), x = o.getContext('2d');
+  if (!(bg.complete && bg.naturalWidth)) return null;
+  x.drawImage(bg, 0, T / 1080 * bg.naturalHeight, bg.naturalWidth, (B - T) / 1080 * bg.naturalHeight, 0, 0, cols * 4, rows * 4);
+  const d = x.getImageData(0, 0, cols * 4, rows * 4).data, out = new Array(cols).fill(0);
+  for (let i = 0; i < d.length; i += 4) {
+    const px = (i / 4) % (cols * 4), lum = (0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]) / 255;
+    out[Math.floor(px / 4)] += lum / (rows * 16);
+  }
+  return out;
+}
+function lightAt(xp) {
+  if (!LIGHT) return 0;
+  const f = Math.max(0, Math.min(1, (xp - L) / (R - L))) * (LIGHT.length - 1), i = Math.floor(f), j = Math.min(LIGHT.length - 1, i + 1);
+  return LIGHT[i] + (LIGHT[j] - LIGHT[i]) * (f - i);
+}
+const smooth = (a, b, v) => { const t = Math.max(0, Math.min(1, (v - a) / (b - a))); return t * t * (3 - 2 * t); };
+function drawMoon(x, y, phase, alpha) {
+  const art = moonArt(phase), r = MOON_R, glow = r * (2.2 + 1.4 * art.lit);
+  // Over a bright photo, a soft patch of night behind the moon, so it and its dark side read.
+  const k = smooth(0.40, 0.80, lightAt(x)) * alpha;
+  if (k > 0.01) {
+    const nb = g.createRadialGradient(x, y, 0, x, y, r * 2.8);
+    nb.addColorStop(0, `rgba(12,18,40,${0.92 * k})`); nb.addColorStop(1.02 / 2.8, `rgba(12,18,40,${0.88 * k})`);
+    nb.addColorStop(1.6 / 2.8, `rgba(12,18,40,${0.45 * k})`); nb.addColorStop(2.2 / 2.8, `rgba(12,18,40,${0.14 * k})`);
+    nb.addColorStop(1, 'rgba(12,18,40,0)');
+    g.fillStyle = nb; g.beginPath(); g.arc(x, y, r * 2.8, 0, 7); g.fill();
+  }
+  const halo = (0.10 + 0.22 * art.lit) * alpha * (1 - 0.6 * k);   // a faint halo over the patch, not a bright fog
+  const gr = g.createRadialGradient(x, y, r * 0.9, x, y, glow);
+  gr.addColorStop(0, `rgba(220,228,255,${halo})`); gr.addColorStop(1, 'rgba(220,228,255,0)');
+  g.fillStyle = gr; g.beginPath(); g.arc(x, y, glow, 0, 7); g.fill();
+  g.save(); g.globalAlpha = alpha; g.drawImage(art.c, x - art.c.width / 2, y - art.c.height / 2); g.restore();
+}
+function loop(now) { const dt = Math.min(0.2, (now - last) / 1000); last = now; frame(now, dt); requestAnimationFrame(loop); }
+for (const id of ['kind', 'body']) $(id).onchange = build;
+let pending = 2; const go = () => { if (--pending) return;
+  LIGHT = skyLight();
+  build();
+  const t = Q.get('t');
+  if (t) { for (let i = 0, n = Number(t) / 33; i < n; i++) frame(i * 33, 0.033); frame(Number(t), 0); document.title = 'ready'; }
+  else requestAnimationFrame(loop);
+};
+bg.onload = bg.onerror = go; moonTex.onload = moonTex.onerror = go;
+</script>
+</body>
+</html>

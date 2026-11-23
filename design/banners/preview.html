@@ -1,0 +1,14 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+html,body{margin:0;width:1400px;height:460px;overflow:hidden;background:linear-gradient(180deg,#152a55 0%,#2a4a82 55%,#e59a78 92%,#13284a 92.2%)}
+#a{position:absolute;left:100px;top:60px;width:1200px;height:340px}
+</style><script src="node_modules/lottie-web/build/player/lottie.min.js"></script></head><body>
+<svg style="position:absolute;left:0;top:250px" width="1400" height="210"><path d="M0 210 L0 120 L160 40 L300 110 L460 10 L640 120 L800 60 L960 150 L1140 80 L1300 150 L1400 100 L1400 210Z" fill="#203a68"/></svg>
+<div id="a"></div>
+<script>
+window.load = (data, l1, l2) => {
+  if (l1) data.layers.find(l => l.nm === 'LINE_1').t.d.k[0].s.t = l1;
+  if (l2) data.layers.find(l => l.nm === 'LINE_2').t.d.k[0].s.t = l2;
+  window.anim = lottie.loadAnimation({ container: document.getElementById('a'), renderer: 'svg', loop: false, autoplay: false, animationData: data });
+  return new Promise(res => window.anim.addEventListener('DOMLoaded', res));
+};
+</script></body></html>

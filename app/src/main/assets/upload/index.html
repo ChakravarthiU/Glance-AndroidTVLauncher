@@ -1,0 +1,851 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>TV Home</title>
+<style>
+  :root { color-scheme: dark; --bg: #0e0f13; --card: #1c1e25; --line: #343742; --text: #fff; --text2: #a9adb8;
+          --text3: #737886; --accent: #6cc6f5; --bad: #ff8a80; --ok: #7bd88f; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 16px 16px 64px; }
+  h1 { font-size: 24px; margin: 8px 0 4px; }
+  h2 { font-size: 18px; margin: 0 0 6px; }
+  h3 { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--text2); margin: 22px 0 8px; font-weight: 600; }
+  p.lead { color: var(--text2); margin: 0 0 16px; }
+  .card { background: var(--card); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+  label.f { display: block; color: var(--text2); font-size: 14px; margin: 12px 0 6px; }
+  input[type=text], input[type=date], select { width: 100%; font: inherit; padding: 10px 12px; border-radius: 10px;
+         border: 1px solid var(--line); background: #12141a; color: var(--text); }
+  #pin { font: 22px/1.2 ui-monospace, monospace; letter-spacing: .3em; }
+  button, .pick { display: inline-block; font: inherit; font-weight: 600; padding: 11px 16px; border-radius: 10px;
+                  border: 0; background: #fff; color: #111; cursor: pointer; }
+  button.quiet { background: #2a2d36; color: var(--text); }
+  button.small { padding: 6px 10px; font-size: 13px; }
+  button.danger { background: #3a2a2e; color: #ffb4ab; }
+  button:disabled { opacity: .35; cursor: default; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .muted { color: var(--text2); font-size: 14px; }
+  .bad { color: var(--bad) !important; }
+  .hidden { display: none !important; }
+  /* Tabs */
+  nav { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 8px 0 10px; display: flex; gap: 6px;
+        overflow-x: auto; scrollbar-width: none; }
+  nav button { flex: 0 0 auto; background: #1c1e25; color: var(--text2); padding: 9px 14px; border-radius: 999px; font-size: 14px; }
+  nav button.on { background: #fff; color: #111; }
+  /* Settings controls */
+  .ctl { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 0;
+         border-top: 1px solid var(--line); }
+  .ctl:first-of-type { border-top: 0; }
+  .ctl .t b { display: block; font-weight: 600; }
+  .ctl .t span { color: var(--text2); font-size: 13px; }
+  .ctl select { width: auto; max-width: 55%; }
+  .radios { display: flex; gap: 14px; flex: 0 0 auto; }
+  .radios label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+  .radios input { width: 20px; height: 20px; accent-color: var(--accent); margin: 0; }
+  .info { color: var(--text2); text-align: right; max-width: 55%; font-size: 14px; }
+  #toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: #fff; color: #111;
+           padding: 10px 16px; border-radius: 10px; font-weight: 600; opacity: 0; transition: opacity .2s;
+           pointer-events: none; max-width: 90%; }
+  #toast.show { opacity: 1; }
+  #toast.bad { background: #ffd6d1; color: #5c0b04; }
+  /* Lists */
+  .item { display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); }
+  .item:first-child { border-top: 0; }
+  .item b { display: block; }
+  .item span { color: var(--text2); font-size: 14px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+  .ph { background: #12141a; border-radius: 10px; overflow: hidden; }
+  .ph img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; background: #222; }
+  .ph .meta { display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; font-size: 13px; color: var(--text2); }
+  .ph .meta { gap: 6px; flex-wrap: wrap; }
+  .ph .meta button { white-space: nowrap; }
+  .ph { position: relative; border: 2px solid transparent; }
+  .ph.on { border-color: var(--accent); }
+  .ph .pick { position: absolute; top: 6px; left: 6px; display: flex; align-items: center; gap: 6px; padding: 4px 8px 4px 6px;
+              border-radius: 999px; background: rgba(0,0,0,.6); color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .ph .pick input { width: 18px; height: 18px; margin: 0; accent-color: var(--accent); }
+  .ph .im { position: relative; }
+  .ph .now { position: absolute; bottom: 6px; right: 6px; padding: 3px 8px; border-radius: 999px; background: var(--accent);
+             color: #00131f; font-size: 12px; font-weight: 700; }
+  progress { width: 100%; height: 8px; margin-top: 10px; display: none; }
+  input[type=file] { display: none; }
+  .count { color: var(--text2); font-size: 13px; text-align: right; margin-top: 4px; }
+  /* Special days */
+  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin-top: 10px; }
+  .tile { text-align: left; background: #12141a; color: var(--text); border: 1px solid var(--line); border-radius: 10px;
+          padding: 9px 10px; font-weight: 500; }
+  .tile b { display: block; font-size: 14px; line-height: 1.25; }
+  .tile span { display: block; color: var(--text2); font-size: 12px; margin-top: 2px; }
+  .tile .tag { color: var(--ok); }
+  .tile.now { border-color: var(--accent); }
+  label.check { display: flex; align-items: center; gap: 8px; margin-top: 10px; color: var(--text2); cursor: pointer; }
+  label.check input { width: 20px; height: 20px; accent-color: var(--accent); margin: 0; }
+  .picks { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; margin-top: 4px; }
+  .picks button { padding: 0; background: #12141a; border: 2px solid transparent; border-radius: 8px; overflow: hidden;
+                  aspect-ratio: 16 / 9; color: var(--text2); font-size: 13px; font-weight: 600; }
+  .picks button img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .picks button { position: relative; }
+  .picks button.on { border-color: var(--accent); color: var(--text); }
+  .picks .num { position: absolute; top: 4px; right: 4px; min-width: 20px; height: 20px; border-radius: 10px;
+                background: var(--accent); color: #111; font-size: 12px; line-height: 20px; text-align: center; }
+  .badge { display: inline-block; font-size: 12px; font-weight: 600; color: #111; background: var(--ok); border-radius: 6px;
+           padding: 1px 6px; margin-left: 6px; vertical-align: 1px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>TV Home</h1>
+  <p class="lead" id="lead">Set up the TV's Home screen from here. Changes show on the TV straight away.</p>
+
+  <section class="card" id="pinCard">
+    <label class="f" for="pin" style="margin-top:0">PIN shown on the TV (Settings › Phone)</label>
+    <div class="row">
+      <input type="text" id="pin" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="••••••" style="flex:1">
+      <button id="unlock">Unlock</button>
+    </div>
+    <p id="pinStatus" class="bad" style="margin:10px 0 0"></p>
+  </section>
+
+  <div id="app" class="hidden">
+    <nav id="tabs">
+      <button data-tab="settings" class="on">Settings</button>
+      <button data-tab="wallpapers">Wallpapers</button>
+      <button data-tab="special">Special days</button>
+      <button data-tab="apps">Apps</button>
+      <button data-tab="test">Test</button>
+      <button data-tab="backup">Backup</button>
+    </nav>
+
+    <!-- Settings: every setting, as on the TV -->
+    <section id="tab-settings">
+      <div id="settings"></div>
+      <div class="card hidden" id="cityCard">
+        <h2>City for the weather</h2>
+        <p class="muted" style="margin:0">Search, then choose: the weather then follows that city ("set by hand").</p>
+        <div class="row" style="margin-top:12px">
+          <input type="text" id="cityQ" placeholder="City name" style="flex:1">
+          <button id="citySearch" class="quiet">Search</button>
+        </div>
+        <div id="cityResults" style="margin-top:8px"></div>
+      </div>
+      <div class="card hidden" id="owmCard">
+        <h2>OpenWeatherMap key</h2>
+        <p class="muted" style="margin:0">To get the weather from OpenWeatherMap, paste your API key (openweathermap.org › your account › API keys). It is saved on the TV only, is never shown in full, and goes into backups.</p>
+        <div class="row" style="margin-top:12px">
+          <input type="text" id="owmKey" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="32 letters and digits" style="flex:1">
+          <button id="owmSave">Save and test</button>
+        </div>
+        <div class="row" style="margin-top:10px"><button class="quiet small" id="owmRemove">Remove the key</button></div>
+      </div>
+    </section>
+
+    <!-- Wallpapers -->
+    <section id="tab-wallpapers" class="hidden">
+      <div class="card">
+        <h2>Wallpaper photos</h2>
+        <p class="muted" style="margin:0 0 12px">Photos you add are ticked for Home straight away, cropped to the TV's shape (16:9). Untick any you don't want on Home; when several are ticked they take turns. A special day's own photo is chosen in the Special days tab.</p>
+        <div class="row">
+          <label class="pick" for="files">Choose photos</label>
+          <input type="file" id="files" accept="image/*" multiple>
+          <span id="count" class="muted"></span>
+        </div>
+        <progress id="progress" max="1" value="0"></progress>
+      </div>
+      <div class="card">
+        <h2>On the TV</h2>
+        <p class="muted" id="wpSummary" style="margin:0"></p>
+        <div class="row" style="margin-top:10px">
+          <button class="quiet small" id="tickAll">Tick all</button>
+          <button class="quiet small" id="untickAll">Untick all</button>
+        </div>
+        <div class="grid" id="photos" style="margin-top:12px"></div>
+      </div>
+    </section>
+
+    <!-- Special days: festival suggestions, and your own dates with everything for each -->
+    <section id="tab-special" class="hidden">
+      <div class="card">
+        <h2>Festival days</h2>
+        <p class="muted" style="margin:0">Suggestions: tap one to fill in a special day below with its dates and greeting, then change anything and save.</p>
+        <div class="tiles" id="suggestions"></div>
+      </div>
+      <div class="card">
+        <h2>Your own dates</h2>
+        <p class="muted" style="margin:0 0 6px">Each day brings its own banner, lights and wallpaper. Only listed here, never on the TV, so a birthday can stay a surprise.</p>
+        <div id="days"></div>
+      </div>
+      <div class="card" id="dayCard">
+        <h2 id="dayTitle">Add a date</h2>
+        <label class="f" for="dName">Name</label>
+        <input type="text" id="dName" maxlength="40" placeholder="Amma's birthday">
+        <div class="two">
+          <div><label class="f" for="dFrom">Date</label><input type="date" id="dFrom"></div>
+          <div><label class="f" for="dTo">Until (optional)</label><input type="date" id="dTo"></div>
+        </div>
+        <label class="check"><input type="checkbox" id="dYearly"> Every year (birthdays, anniversaries)</label>
+
+        <label class="f" for="dDesign">Banner design</label>
+        <select id="dDesign"><option value="">No banner</option></select>
+        <div id="dLines">
+          <label class="f" for="dLine1">Banner first line (big)</label>
+          <input type="text" id="dLine1" maxlength="40" placeholder="Happy Birthday, Alex!">
+          <div class="count" id="c1"></div>
+          <label class="f" for="dLine2">Banner second line (small, optional)</label>
+          <input type="text" id="dLine2" maxlength="60" placeholder="Have a wonderful day">
+          <div class="count" id="c2"></div>
+        </div>
+
+        <div class="ctl" style="border-top:0;margin-top:6px">
+          <div class="t"><b>Lights</b><span>When the theme's lights are set to "On special days"</span></div>
+          <div class="radios">
+            <label><input type="radio" name="dLights" id="dLightsOn" checked> On</label>
+            <label><input type="radio" name="dLights" id="dLightsOff"> Off</label>
+          </div>
+        </div>
+
+        <label class="f">Wallpaper</label>
+        <div class="picks" id="dPhotos"></div>
+        <input type="file" id="dUpload" accept="image/*" multiple>
+        <p class="muted" style="margin:6px 0 0">Default: the usual wallpaper from Settings (your ticked photos, taking turns if several are ticked). Or tap one or more photos for this day: several take turns, like ticked photos. Photos uploaded here show only on this day, not with the ticked ones.</p>
+
+        <div class="row" style="margin-top:16px">
+          <button id="dSave">Save</button>
+          <button id="dPreview" class="quiet">Show on the TV's Home</button>
+          <button id="dCancel" class="quiet hidden">Cancel</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Apps -->
+    <section id="tab-apps" class="hidden">
+      <p class="muted">Where each app lives: the Apps bar (up to <span id="barMax">8</span>), Home (the grid below), or Hidden. Arrows change the order.</p>
+      <div class="card"><h2 id="hBar">Apps bar</h2><div id="appsBar"></div></div>
+      <div class="card"><h2 id="hHome">Home</h2><div id="appsHome"></div></div>
+      <div class="card"><h2 id="hHidden">Hidden</h2><div id="appsHidden"></div></div>
+    </section>
+
+    <!-- Test: what Home shows now and why, and a test of the sky, banner and lights on the TV's real Home -->
+    <section id="tab-test" class="hidden">
+      <div class="card">
+        <h2>Home now</h2>
+        <p class="muted" id="tOff" style="margin:0 0 8px"></p>
+        <div id="tNow"></div>
+      </div>
+      <div class="card">
+        <h2>Test on the TV's Home</h2>
+        <p class="muted" style="margin:0">Choose a weather, a time of day, a banner and the lights, then tap <b>Show on the TV</b>: the TV opens Home exactly as it looks (over its Settings) and follows every change you make here. Home keeps the test for 15 minutes, with a "Test from the phone" label in the corner. Back on the remote returns to Settings.</p>
+
+        <h3>Sky</h3>
+        <label class="f" for="skyKind" style="margin-top:0">Weather</label>
+        <select id="skyKind"></select>
+        <label class="f" for="skyTime">Time of day: <b id="skyTimeText">Now</b></label>
+        <input type="range" id="skyTime" min="-5" max="1435" step="5" value="-5" style="width:100%">
+        <div class="row" style="margin-top:8px">
+          <button class="quiet small" data-time="now">Now</button>
+          <button class="quiet small" data-time="rise">Sunrise</button>
+          <button class="quiet small" data-time="noon">Midday</button>
+          <button class="quiet small" data-time="set">Sunset</button>
+          <button class="quiet small" data-time="night">Night</button>
+        </div>
+
+        <h3>Banner</h3>
+        <select id="tBanner"></select>
+        <div id="tLines" class="hidden">
+          <label class="f" for="tLine1">First line (big)</label>
+          <input type="text" id="tLine1" maxlength="40" placeholder="Happy Birthday!">
+          <label class="f" for="tLine2">Second line (small, optional)</label>
+          <input type="text" id="tLine2" maxlength="60" placeholder="Have a wonderful day">
+        </div>
+
+        <h3>Festive lights</h3>
+        <div class="radios" style="margin-top:4px">
+          <label><input type="radio" name="tLights" value="real" checked> As today</label>
+          <label><input type="radio" name="tLights" value="on"> On</label>
+          <label><input type="radio" name="tLights" value="off"> Off</label>
+        </div>
+
+        <p class="muted" id="testState" style="margin:16px 0 0"></p>
+        <div class="row" style="margin-top:12px">
+          <button id="testShow">Show on the TV</button>
+          <button class="quiet" id="testStop">End the test</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Backup: settings and photos to a file, and back -->
+    <section id="tab-backup" class="hidden">
+      <div class="card">
+        <h2>Back up</h2>
+        <p class="muted" style="margin:0">Saves everything you set up (settings, apps and their order, special days, which photos are on Home) to a file on this phone. Keep it somewhere safe: it is what puts the TV back as it was after a reinstall.</p>
+        <label class="row" style="margin-top:12px; gap:8px"><input type="checkbox" id="bkPhotos" checked style="width:20px;height:20px"> Include the wallpaper photos <span class="muted" id="bkSize"></span></label>
+        <div class="row" style="margin-top:12px"><button id="bkDownload">Download backup</button></div>
+      </div>
+      <div class="card">
+        <h2>Restore</h2>
+        <p class="muted" style="margin:0">Puts back everything from a backup file. What is on the TV now is replaced; photos are replaced only if the backup has them. The launcher restarts on the TV to finish.</p>
+        <div class="row" style="margin-top:12px">
+          <label class="pick quiet" style="background:#2a2d36;color:#fff">Choose backup file<input type="file" id="rsFile" accept=".zip,application/zip" class="hidden"></label>
+          <span class="muted" id="rsName"></span>
+        </div>
+        <div class="row" style="margin-top:12px"><button id="rsGo" disabled>Restore</button></div>
+      </div>
+      <div class="card">
+        <h2>Problems</h2>
+        <div id="problem"></div>
+      </div>
+    </section>
+  </div>
+</main>
+<div id="toast"></div>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids); return e; };
+  let pin = '', toastTimer = 0;
+  const toast = (text, bad) => {
+    const t = $('toast'); t.textContent = text; t.className = 'show' + (bad ? ' bad' : '');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.className = ''; }, 2600);
+  };
+
+  // The QR code carries the PIN after '#', which never leaves the phone in a request.
+  const fromLink = (location.hash.match(/pin=(\d{6})/) || [])[1];
+  if (fromLink) { pin = fromLink; history.replaceState(null, '', location.pathname); }
+  else { try { pin = localStorage.getItem('tvPin') || ''; } catch (e) {} }
+  $('pin').value = pin;
+
+  async function api(path, opts = {}) {
+    opts.headers = Object.assign({ 'X-Pin': pin }, opts.headers || {});
+    const r = await fetch(path, opts);
+    if (!r.ok) throw new Error((await r.text()) || ('Error ' + r.status));
+    return r;
+  }
+  const post = (path, body) => api(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const getJson = async path => (await api(path)).json();
+
+  // ---- Tabs ----
+  const loaders = {};
+  let currentTab = 'settings';
+  function showTab(name) {
+    currentTab = name;
+    for (const b of $('tabs').children) b.classList.toggle('on', b.dataset.tab === name);
+    for (const s of document.querySelectorAll('section[id^="tab-"]')) s.classList.toggle('hidden', s.id !== 'tab-' + name);
+    loaders[name]().catch(e => toast(e.message, true));
+  }
+  for (const b of $('tabs').children) b.onclick = () => showTab(b.dataset.tab);
+
+  // ---- Settings ----
+  // The city and OpenWeatherMap cards are moved in among the settings each time the tab loads, and the list is emptied
+  // first; held here, they can't be lost from the page between loads (getElementById can't find a detached card).
+  const cityCard = $('cityCard'), owmCard = $('owmCard');
+  loaders.settings = async () => {
+    const sections = await getJson('/api/settings');
+    const box = $('settings');
+    box.replaceChildren();
+    for (const s of sections) {
+      if (s.group) box.append(el('h3', { textContent: s.group }));
+      const card = el('div', { className: 'card' }, el('h2', { textContent: s.title }));
+      for (const c of s.controls) card.append(control(c));
+      box.append(card);
+      if (s.id === 'time') box.append(cityCard, owmCard);
+    }
+    cityCard.classList.remove('hidden');
+    owmCard.classList.remove('hidden');
+  };
+
+  function control(c) {
+    const t = el('div', { className: 't' }, el('b', { textContent: c.label }));
+    if (c.note) t.append(el('span', { textContent: c.note }));
+    const row = el('div', { className: 'ctl' }, t);
+    const save = async value => {
+      try { await post('/api/setting', { key: c.key, value }); toast('Saved'); }
+      catch (e) { toast(e.message, true); }
+      loaders.settings().catch(() => {});
+    };
+    if (c.type === 'toggle') {
+      const name = 'r-' + c.key;
+      const radios = el('div', { className: 'radios' });
+      for (const [label, v] of [['On', true], ['Off', false]]) {
+        const input = el('input', { type: 'radio', name, checked: c.value === v });
+        input.onchange = () => save(v);
+        radios.append(el('label', {}, input, label));
+      }
+      row.append(radios);
+    } else if (c.type === 'choice') {
+      const sel = el('select');
+      c.options.forEach((o, i) => sel.add(new Option(o, i, false, i === c.value)));
+      sel.onchange = () => save(Number(sel.value));
+      row.append(sel);
+    } else {
+      row.append(el('div', { className: 'info', textContent: c.value }));
+    }
+    return row;
+  }
+
+  $('citySearch').onclick = async () => {
+    const q = $('cityQ').value.trim();
+    if (q.length < 2) return toast('Type at least two letters', true);
+    const box = $('cityResults');
+    box.textContent = 'Searching…';
+    try {
+      const found = await getJson('/api/city?q=' + encodeURIComponent(q));
+      box.replaceChildren();
+      if (!found.length) { box.textContent = 'No city called ' + q + ' found.'; return; }
+      for (const c of found) {
+        const b = el('button', { className: 'quiet small', textContent: 'Use this' });
+        b.onclick = async () => {
+          b.disabled = true;
+          try { const r = await post('/api/city', c); toast(await r.text()); box.replaceChildren(); $('cityQ').value = ''; }
+          catch (e) { toast(e.message, true); }
+          loaders.settings().catch(() => {});
+        };
+        box.append(el('div', { className: 'item' }, el('div', {}, el('b', { textContent: c.name }), el('span', { textContent: c.detail })), b));
+      }
+    } catch (e) { box.textContent = ''; toast(e.message, true); }
+  };
+
+  // ---- Wallpapers ----
+  const thumbs = {};
+  const thumb = (id, img) => {
+    if (thumbs[id]) { img.src = thumbs[id]; return; }
+    api('/api/thumb/' + id).then(r => r.blob()).then(b => { thumbs[id] = URL.createObjectURL(b); img.src = thumbs[id]; }).catch(() => {});
+  };
+  loaders.wallpapers = async () => {
+    const data = await getJson('/api/photos');
+    const ticked = data.photos.filter(p => p.ticked).length;
+    $('count').textContent = data.photos.length + ' of ' + data.max + ' photos';
+    $('wpSummary').textContent = !data.photos.length ? '' :
+      (!data.enabled ? 'Wallpaper is off (Settings tab › Wallpapers), so Home shows the built-in picture. ' : '')
+      + (ticked === 0 ? 'Nothing ticked: Home shows the built-in picture.'
+        : ticked === 1 ? '1 photo on Home.' : ticked + ' photos on Home, taking turns.');
+    $('tickAll').disabled = !data.photos.length || ticked === data.photos.length;
+    $('untickAll').disabled = ticked === 0;
+    const box = $('photos');
+    box.replaceChildren();
+    if (!data.photos.length) { box.textContent = 'No photos yet.'; return; }
+    for (const p of data.photos.slice().reverse()) {   // newest first
+      const img = el('img', { alt: '' });
+      const box2 = el('input', { type: 'checkbox', checked: p.ticked });
+      box2.onchange = () => tick([p.id], box2.checked);
+      const im = el('div', { className: 'im' }, img, el('label', { className: 'pick' }, box2, document.createTextNode('On Home')));
+      if (data.enabled && p.id === data.current && p.ticked) im.append(el('span', { className: 'now', textContent: 'Showing' }));
+      const card = el('div', { className: 'ph' + (p.ticked ? ' on' : '') }, im);
+      const show = el('button', { className: 'small quiet', textContent: 'Show now' });
+      show.onclick = async () => {
+        try { toast(await (await post('/api/show-now', { id: p.id })).text()); await loaders.wallpapers(); } catch (e) { toast(e.message, true); }
+      };
+      const del = el('button', { className: 'small danger', textContent: 'Remove' });
+      del.onclick = async () => {
+        if (!confirm('Remove this photo from the TV? Special days using it keep everything else.')) return;
+        try { await api('/api/photo/' + p.id, { method: 'DELETE' }); await loaders.wallpapers(); } catch (e) { toast(e.message, true); }
+      };
+      card.append(el('div', { className: 'meta' }, show, del));
+      box.append(card);
+      thumb(p.id, img);
+    }
+  };
+  async function tick(ids, on) {
+    try { toast(await (await post('/api/tick', { ids, ticked: on })).text()); } catch (e) { toast(e.message, true); }
+    loaders.wallpapers().catch(e => toast(e.message, true));
+  }
+  $('tickAll').onclick = () => tick(['*'], true);
+  $('untickAll').onclick = () => tick(['*'], false);
+
+  // Resize on the phone before sending: a 1920 x 1080 JPEG, centre-cropped, uploads fast and the TV never has to
+  // decode a 50-megapixel photo. The TV checks and resizes again anyway.
+  async function shrink(file) {
+    let src;
+    try { src = await createImageBitmap(file, { imageOrientation: 'from-image' }); }
+    catch (e) {
+      src = await new Promise((ok, no) => {
+        const i = new Image(); i.onload = () => ok(i); i.onerror = () => no(new Error(file.name + ' is not a picture'));
+        i.src = URL.createObjectURL(file);
+      });
+    }
+    const W = 1920, H = 1080, w = src.width, h = src.height;
+    let sx = 0, sy = 0, sw = w, sh = h;
+    if (w * H > h * W) { sw = Math.round(h * W / H); sx = Math.round((w - sw) / 2); }
+    else { sh = Math.round(w * H / W); sy = Math.round((h - sh) / 2); }
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    const g = c.getContext('2d'); g.imageSmoothingQuality = 'high';
+    g.drawImage(src, sx, sy, sw, sh, 0, 0, W, H);
+    return await new Promise(ok => c.toBlob(ok, 'image/jpeg', 0.9));
+  }
+
+  $('files').onchange = async ev => {
+    const files = Array.from(ev.target.files || []);
+    ev.target.value = '';
+    if (!files.length) return;
+    const bar = $('progress'); bar.style.display = 'block'; bar.max = files.length; bar.value = 0;
+    let added = 0;
+    for (let i = 0; i < files.length; i++) {
+      toast('Sending ' + (i + 1) + ' of ' + files.length + '…');
+      try {
+        const blob = await shrink(files[i]);
+        await api('/api/upload', { method: 'POST', headers: { 'Content-Type': 'image/jpeg' }, body: blob });
+        added++;
+      } catch (e) { toast(files[i].name + ': ' + e.message, true); }
+      bar.value = i + 1;
+    }
+    bar.style.display = 'none';
+    if (added) toast(added + (added === 1 ? ' photo' : ' photos') + ' added. They are on the TV now.');
+    loaders.wallpapers().catch(e => toast(e.message, true));
+  };
+
+  // ---- Special days ----
+  let editingDay = null, dayPhotos = [];
+  function showLines() {
+    const banner = $('dDesign').value !== '';
+    $('dLines').classList.toggle('hidden', !banner);
+    $('dPreview').classList.toggle('hidden', !banner);
+  }
+  $('dDesign').onchange = showLines;
+  for (const [i, c] of [['dLine1', 'c1'], ['dLine2', 'c2']]) $(i).oninput = () => { $(c).textContent = $(i).value.length + ' / ' + $(i).maxLength; };
+
+  // Fills the form from a day (to edit it) or a festival suggestion (to start a new day); {} clears it.
+  function fillDay(d, editId) {
+    editingDay = editId || null;
+    $('dayTitle').textContent = editId ? 'Edit ' + d.name : 'Add a date';
+    $('dName').value = d.name || '';
+    $('dFrom').value = d.from || '';
+    $('dTo').value = d.to && d.to !== d.from ? d.to : '';
+    $('dYearly').checked = !!d.yearly;
+    $('dDesign').value = d.design || '';
+    $('dLine1').value = d.line1 || ''; $('dLine2').value = d.line2 || '';
+    $('dLightsOn').checked = d.lights !== false; $('dLightsOff').checked = d.lights === false;
+    dayPhotos = (d.photos || []).slice();
+    $('dCancel').classList.toggle('hidden', !d.name);
+    showLines(); $('dLine1').oninput(); $('dLine2').oninput();
+    drawPhotoPicks();
+  }
+  const clearDay = () => fillDay({});
+  $('dCancel').onclick = clearDay;
+
+  // The wallpaper choice: Default (the ticked photos), or one or more of the day's own photos, which take turns.
+  let photoIds = [];
+  function drawPhotoPicks() {
+    const box = $('dPhotos');
+    box.replaceChildren();
+    const none = el('button', { type: 'button', textContent: 'Default', title: 'The usual wallpaper from Settings', className: dayPhotos.length ? '' : 'on' });
+    none.onclick = () => { dayPhotos = []; drawPhotoPicks(); };
+    box.append(none);
+    for (const id of photoIds.slice().reverse()) {   // newest first
+      const img = el('img', { alt: '' });
+      const at = dayPhotos.indexOf(id);
+      const b = el('button', { type: 'button', className: at >= 0 ? 'on' : '' }, img);
+      if (at >= 0 && dayPhotos.length > 1) b.append(el('span', { className: 'num', textContent: at + 1 }));
+      b.onclick = () => { if (at >= 0) dayPhotos.splice(at, 1); else dayPhotos.push(id); drawPhotoPicks(); };
+      thumb(id, img);
+      box.append(b);
+    }
+    const up = el('button', { type: 'button', textContent: '+ Upload new' });
+    up.onclick = () => $('dUpload').click();
+    box.append(up);
+  }
+  $('dUpload').onchange = async ev => {
+    const files = Array.from(ev.target.files || []);
+    ev.target.value = '';
+    if (!files.length) return;
+    let added = 0;
+    for (let i = 0; i < files.length; i++) {
+      toast('Sending ' + (i + 1) + ' of ' + files.length + '…');
+      try {
+        const blob = await shrink(files[i]);
+        const r = await api('/api/upload?tick=0', { method: 'POST', headers: { 'Content-Type': 'image/jpeg' }, body: blob });
+        dayPhotos.push((await r.json()).id);
+        added++;
+      } catch (e) { toast(files[i].name + ': ' + e.message, true); }
+    }
+    try { photoIds = (await getJson('/api/photos')).photos.map(p => p.id); } catch (e) {}
+    drawPhotoPicks();
+    if (added) toast((added === 1 ? 'Photo' : added + ' photos') + ' added. Save to keep them for this day.');
+  };
+
+  loaders.special = async () => {
+    const [data, photos] = await Promise.all([getJson('/api/special'), getJson('/api/photos')]);
+    photoIds = photos.photos.map(p => p.id);
+    if ($('dDesign').options.length === 1) for (const d of data.designs) $('dDesign').add(new Option(d.label, d.id));
+
+    const tiles = $('suggestions');
+    tiles.replaceChildren();
+    for (const f of data.suggestions) {
+      const t = el('button', { type: 'button', className: 'tile' + (f.today ? ' now' : '') },
+        el('b', { textContent: f.name }),
+        el('span', { textContent: (f.today ? 'Today · ' : '') + f.dates }));
+      if (f.added) t.append(el('span', { className: 'tag', textContent: '✓ Added' }));
+      t.onclick = () => { fillDay(f); $('dayCard').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+      tiles.append(t);
+    }
+
+    const list = $('days');
+    list.replaceChildren();
+    if (!data.days.length) list.append(el('div', { className: 'muted', textContent: 'No dates yet. Add one below, or start from a festival above.' }));
+    for (const d of data.days) {
+      const what = [d.designLabel ? d.designLabel + ' banner' : 'No banner', d.lights ? 'Lights on' : 'Lights off'];
+      const n = d.photos.length;
+      what.push(n === 0 ? 'Default wallpaper' : n === 1 ? 'Own wallpaper' : n + ' own wallpapers');
+      const name = el('b', { textContent: d.name });
+      if (d.today) name.append(el('span', { className: 'badge', textContent: 'Today' }));
+      const texts = el('div', {}, name, el('span', { textContent: d.whenText + (d.over ? ' (over)' : '') + ' · ' + what.join(' · ') }));
+      const left = el('div', { className: 'row', style: 'flex-wrap:nowrap' });
+      if (d.photos.length) {
+        const img = el('img', { alt: '', style: 'width:80px;flex:0 0 80px;aspect-ratio:16/9;object-fit:cover;border-radius:6px;background:#222' });
+        thumb(d.photos[0], img);
+        left.append(img);
+      }
+      left.append(texts);
+      const edit = el('button', { className: 'small quiet', textContent: 'Edit' });
+      edit.onclick = () => { fillDay(d, d.id); $('dayCard').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+      const del = el('button', { className: 'small danger', textContent: 'Remove' });
+      del.onclick = async () => {
+        if (!confirm('Remove ' + d.name + '?')) return;
+        try { await api('/api/special/' + d.id, { method: 'DELETE' }); if (editingDay === d.id) clearDay(); await loaders.special(); } catch (e) { toast(e.message, true); }
+      };
+      list.append(el('div', { className: 'item' }, left, el('div', { className: 'row', style: 'flex-wrap:nowrap' }, edit, del)));
+    }
+    drawPhotoPicks();
+  };
+
+  $('dSave').onclick = async () => {
+    if (!$('dName').value.trim()) return toast('Type a name for the day.', true);
+    if (!$('dFrom').value) return toast('Choose the date.', true);
+    if ($('dDesign').value && !$('dLine1').value.trim()) return toast("Type the banner's first line, or choose No banner.", true);
+    try {
+      const r = await post('/api/special', {
+        id: editingDay || '', name: $('dName').value, from: $('dFrom').value, to: $('dTo').value,
+        yearly: $('dYearly').checked, design: $('dDesign').value, line1: $('dLine1').value, line2: $('dLine2').value,
+        lights: $('dLightsOn').checked, photos: dayPhotos
+      });
+      toast(await r.text());
+      clearDay();
+      await loaders.special();
+    } catch (e) { toast(e.message, true); }
+  };
+  $('dPreview').onclick = async () => {
+    try {
+      const r = await post('/api/special-preview', { design: $('dDesign').value, line1: $('dLine1').value,
+        line2: $('dLine2').value, lights: $('dLightsOn').checked });
+      toast(await r.text() + ' for 15 minutes: look at the TV.');
+    } catch (e) { toast(e.message, true); }
+  };
+
+  // ---- Apps ----
+  loaders.apps = async () => {
+    const data = await getJson('/api/apps');
+    $('barMax').textContent = data.barMax;
+    $('hBar').textContent = 'Apps bar · ' + data.bar.length + ' of ' + data.barMax;
+    $('hHome').textContent = 'Home · ' + data.home.length;
+    $('hHidden').textContent = 'Hidden · ' + data.hidden.length;
+    for (const [key, boxId, state] of [['bar', 'appsBar', 'bar'], ['home', 'appsHome', 'home'], ['hidden', 'appsHidden', 'hidden']]) {
+      const box = $(boxId);
+      box.replaceChildren();
+      const list = data[key];
+      if (!list.length) box.append(el('div', { className: 'muted', textContent: 'None' }));
+      list.forEach((a, i) => {
+        const act = async action => {
+          try { await post('/api/app', { pkg: a.pkg, action }); await loaders.apps(); } catch (e) { toast(e.message, true); }
+        };
+        const up = el('button', { className: 'small quiet', textContent: '↑', disabled: i === 0 || state === 'hidden', title: 'Move up' });
+        up.onclick = () => act('up');
+        const down = el('button', { className: 'small quiet', textContent: '↓', disabled: i === list.length - 1 || state === 'hidden', title: 'Move down' });
+        down.onclick = () => act('down');
+        const where = el('select', { style: 'width:auto' });
+        for (const [v, l] of [['bar', 'Apps bar'], ['home', 'Home'], ['hidden', 'Hidden']]) where.add(new Option(l, v, false, v === state));
+        where.onchange = () => act(where.value);
+        box.append(el('div', { className: 'item' }, el('b', { textContent: a.label }), el('div', { className: 'row' }, up, down, where)));
+      });
+    }
+  };
+
+  // ---- OpenWeatherMap key ----
+  $('owmSave').onclick = async () => {
+    const key = $('owmKey').value.trim();
+    if (!key) { toast('Paste the key first', true); return; }
+    $('owmSave').disabled = true; $('owmSave').textContent = 'Testing…';
+    try {
+      const r = await post('/api/weather-key', { key });
+      const text = await r.text();
+      toast(text, text.startsWith('Saved, but'));
+      $('owmKey').value = '';
+      await loaders.settings();
+    } catch (e) { toast(e.message, true); }
+    $('owmSave').disabled = false; $('owmSave').textContent = 'Save and test';
+  };
+  $('owmRemove').onclick = async () => {
+    try { toast(await (await api('/api/weather-key', { method: 'DELETE' })).text()); await loaders.settings(); } catch (e) { toast(e.message, true); }
+  };
+
+  // ---- Test: the sky, banner and lights on the TV's Home ----
+  const hm = m => m < 0 ? 'Now' : Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0');
+  const toMin = t => { const p = String(t || '').split(':'); return p.length === 2 ? Number(p[0]) * 60 + Number(p[1]) : -1; };
+  let testFilled = false, testTimer = 0, testing = false, sunTimes = { rise: 360, set: 1080 };
+  const skyMinute = () => Number($('skyTime').value) < 0 ? -1 : Number($('skyTime').value);
+  const lightsChoice = () => (document.querySelector('input[name=tLights]:checked') || {}).value || 'real';
+  const testBody = show => ({ kind: $('skyKind').value, minute: skyMinute(), banner: $('tBanner').value,
+    line1: $('tLine1').value, line2: $('tLine2').value, lights: lightsChoice(), show });
+  const showTestLines = () => $('tLines').classList.toggle('hidden', ['real', 'none'].includes($('tBanner').value));
+
+  loaders.test = async () => {
+    const s = await getJson('/api/sky');
+    sunTimes = { rise: toMin(s.sunrise), set: toMin(s.sunset) };
+    $('tOff').textContent = !s.drawn ? s.theme + ' has no sky.'
+      : !s.on ? 'The sky is off in the Settings tab (' + s.theme + ' › Sky); a test still shows it.' : '';
+    const r = s.reading || {};
+    const weather = !r.enabled ? 'Weather is off (Settings tab), so the sky is clear'
+      : r.code === undefined ? 'Not fetched yet, so the sky is clear'
+      : r.said + ' (' + r.kind + ') · ' + (r.from || 'weather service') + (r.city ? ' · ' + r.city : '')
+        + ' · ' + (r.minutesAgo < 1 ? 'just now' : r.minutesAgo + ' min ago') + (r.used ? '' : ' (too old to use: clear sky)');
+    let why;
+    if (s.test) why = 'A test from this phone is running, so Home shows the test, not the real weather.';
+    else if (r.used) why = 'This is the real weather: ' + r.said.toLowerCase() + ' draws ' + s.drawing + '.';
+    else why = 'No recent weather, so the sky is clear.';
+    const lines = [
+      ['Sky on Home', s.drawing + (s.test ? ' (test)' : '')],
+      ['Real weather', weather],
+      ['Why', why],
+      ['Sun or moon', s.body + ', ' + s.percent + '% across · ' + s.moon],
+      ['Sunrise and sunset', s.sunrise + ' and ' + s.sunset + (s.place ? ' (' + s.place + ')' : ' (no city yet: 6:00 and 18:00)')],
+      ['Banner today', !s.bannerDrawn ? s.theme + ' has no banner' : (s.bannerToday || 'None') + (s.bannerOn ? '' : ' (banner off in Settings)')],
+      ['Lights today', !s.lightsDrawn ? s.theme + ' has no lights' : s.lightsToday ? 'On' : 'Off'],
+    ];
+    $('tNow').replaceChildren(...lines.map(([k, v]) => el('div', { className: 'ctl' },
+      el('div', { className: 't' }, el('b', { textContent: k })), el('div', { className: 'info', textContent: v }))));
+    if (!testFilled) {
+      $('skyKind').add(new Option('The real weather', ''));
+      for (const k of s.kinds) $('skyKind').add(new Option(k.label, k.id));
+      $('tBanner').add(new Option("Today's (real)", 'real'));
+      $('tBanner').add(new Option('No banner', 'none'));
+      for (const d of s.designs) $('tBanner').add(new Option(d.label, d.id));
+      testFilled = true;
+    }
+    testing = !!s.test;
+    if (s.test) {
+      $('skyKind').value = s.test.kind;
+      $('skyTime').value = s.test.minute < 0 ? -5 : s.test.minute;
+      $('tBanner').value = s.test.banner;
+      if (s.test.line1) $('tLine1').value = s.test.line1;
+      if (s.test.line2) $('tLine2').value = s.test.line2;
+      const radio = document.querySelector('input[name=tLights][value="' + s.test.lights + '"]');
+      if (radio) radio.checked = true;
+      $('testState').textContent = 'Testing on Home for ' + s.test.minutesLeft + ' more minute' + (s.test.minutesLeft === 1 ? '' : 's') + '. Changes here show on the TV straight away.';
+    } else {
+      $('testState').textContent = 'No test running: Home shows the real sky, banner and lights.';
+    }
+    showTestLines();
+    $('skyTimeText').textContent = hm(skyMinute());
+    $('testStop').disabled = !s.test;
+  };
+  async function testSend(show) {
+    try {
+      const r = await post('/api/home-test', testBody(show));
+      toast(await r.text());
+      await loaders.test();
+    } catch (e) { toast(e.message, true); }
+  }
+  // While a test runs, the TV follows each change (a short pause first, so a slider drag is one update).
+  const testChanged = () => { if (testing) { clearTimeout(testTimer); testTimer = setTimeout(() => testSend(false), 350); } };
+  $('testShow').onclick = () => testSend(true);
+  $('testStop').onclick = async () => {
+    try { toast(await (await api('/api/home-test', { method: 'DELETE' })).text()); await loaders.test(); } catch (e) { toast(e.message, true); }
+  };
+  for (const b of document.querySelectorAll('[data-time]')) b.onclick = () => {
+    const t = b.dataset.time;
+    const m = t === 'now' ? -5 : t === 'rise' ? sunTimes.rise + 20 : t === 'set' ? sunTimes.set - 20
+      : t === 'noon' ? Math.round((sunTimes.rise + sunTimes.set) / 2) : (Math.round((sunTimes.set + sunTimes.rise + 1440) / 2)) % 1440;
+    $('skyTime').value = m;
+    $('skyTime').oninput();
+  };
+  $('skyTime').oninput = () => { $('skyTimeText').textContent = hm(skyMinute()); testChanged(); };
+  $('skyKind').onchange = testChanged;
+  $('tBanner').onchange = () => { showTestLines(); testChanged(); };
+  $('tLine1').oninput = testChanged;
+  $('tLine2').oninput = testChanged;
+  for (const r of document.querySelectorAll('input[name=tLights]')) r.onchange = testChanged;
+
+  // ---- Backup ----
+  loaders.backup = async () => {
+    const info = await getJson('/api/backup-info');
+    $('bkSize').textContent = info.photos ? '(' + info.photos + ' photo' + (info.photos === 1 ? '' : 's') + ', about ' + info.photosMb + ' MB)' : '(no photos yet)';
+    const p = await getJson('/api/problem');
+    const box = $('problem');
+    box.replaceChildren();
+    box.append(el('p', { className: 'muted', style: 'margin:0 0 8px', textContent: p.safeMode
+      ? 'Safe mode is on: the launcher stopped several times in a row, so Home is showing a plain list of apps.'
+      : 'Home is running normally.' }));
+    if (p.last) {
+      box.append(el('p', { style: 'margin:0 0 6px', textContent: 'Last problem: ' + p.last.when + ' (version ' + p.last.version + ')' }));
+      box.append(el('pre', { style: 'white-space:pre-wrap;font-size:12px;background:#12141a;padding:10px;border-radius:10px;max-height:260px;overflow:auto;margin:0', textContent: p.last.text }));
+    } else {
+      box.append(el('p', { className: 'muted', style: 'margin:0', textContent: 'No problems recorded.' }));
+    }
+    const row = el('div', { className: 'row', style: 'margin-top:12px' });
+    if (p.safeMode) {
+      const leave = el('button', { textContent: 'Try normal Home again' });
+      leave.onclick = async () => { try { await post('/api/problem', { action: 'leave' }); toast('Normal Home on next return'); await loaders.backup(); } catch (e) { toast(e.message, true); } };
+      row.append(leave);
+    }
+    if (p.last) {
+      const clear = el('button', { className: 'quiet', textContent: 'Clear' });
+      clear.onclick = async () => { try { await post('/api/problem', { action: 'clear' }); await loaders.backup(); } catch (e) { toast(e.message, true); } };
+      row.append(clear);
+    }
+    if (row.children.length) box.append(row);
+  };
+  $('bkDownload').onclick = async () => {
+    const b = $('bkDownload');
+    b.disabled = true; b.textContent = 'Preparing…';
+    try {
+      const r = await api('/api/backup' + ($('bkPhotos').checked ? '?photos=1' : ''));
+      const blob = await r.blob();
+      const name = (r.headers.get('Content-Disposition') || '').match(/filename="([^"]+)"/);
+      const a = el('a', { href: URL.createObjectURL(blob), download: name ? name[1] : 'tvhome-backup.zip' });
+      document.body.append(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+      toast('Backup saved');
+    } catch (e) { toast(e.message, true); }
+    b.disabled = false; b.textContent = 'Download backup';
+  };
+  $('rsFile').onchange = () => {
+    const f = $('rsFile').files[0];
+    $('rsName').textContent = f ? f.name + ' (' + (f.size / 1048576).toFixed(1) + ' MB)' : '';
+    $('rsGo').disabled = !f;
+  };
+  $('rsGo').onclick = async () => {
+    const f = $('rsFile').files[0];
+    if (!f || !confirm('Replace what is on the TV with this backup? The launcher restarts on the TV.')) return;
+    $('rsGo').disabled = true; $('rsGo').textContent = 'Restoring…';
+    try {
+      const r = await api('/api/restore', { method: 'POST', headers: { 'Content-Type': 'application/zip' }, body: f });
+      toast(await r.text());
+      $('lead').textContent = 'Restored. The launcher is restarting on the TV: open Settings there and scan the QR code again to carry on.';
+      $('app').classList.add('hidden');
+    } catch (e) { toast(e.message, true); }
+    $('rsGo').disabled = false; $('rsGo').textContent = 'Restore';
+  };
+
+  // ---- Unlock ----
+  async function unlock() {
+    await getJson('/api/photos');   // checks the PIN
+    try { localStorage.setItem('tvPin', pin); } catch (e) {}
+    $('pinCard').classList.add('hidden');
+    $('app').classList.remove('hidden');
+    clearDay();
+    showTab(location.pathname === '/banners' ? 'special' : 'settings');
+  }
+  $('unlock').onclick = () => {
+    pin = $('pin').value.trim();
+    $('pinStatus').textContent = '';
+    unlock().catch(e => { $('pinStatus').textContent = e.message; });
+  };
+  // Back on the phone after a while: show what changed on the TV meanwhile.
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && !$('app').classList.contains('hidden')) loaders[currentTab]().catch(() => {});
+  });
+  if (pin) unlock().catch(e => { $('pinStatus').textContent = e.message; });
+})();
+</script>
+</body>
+</html>

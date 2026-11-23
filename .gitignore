@@ -1,0 +1,12 @@
+.gradle/
+build/
+local.properties
+*.jks
+*.keystore
+builds/
+*.apk
+*.aab
+*.password.txt
+.DS_Store
+design/banners/node_modules/
+design/banners/frames/
